@@ -1,12 +1,13 @@
 /**
- * @file paylaod.c Example libproc process
+ * @file payload.c Example libproc process
  *
  */
 
-#include <polysat/polysat.h>
+#include <polysat3/polysat.h>
 #include <polysat_drivers/drivers/gpio.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include "ode-cmds.h"
 
 #define FEEDBACK_POLL_INTV_MS 1000
@@ -979,6 +980,7 @@ int main(int argc, char *argv[])
    state->proc = PROC_init("payload", WD_ENABLED);
    DBG_setLevel(DBG_LEVEL_ALL);
 
+   DBG_print(DBG_LEVEL_INFO, "Port: %d", socket_get_addr_by_name("payload"));
 
    // Initialize GPIOs
    state->led_IR = create_named_gpio_device("LED_IR");
