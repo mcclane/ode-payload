@@ -1,5 +1,7 @@
 #include <iostream>
+#include <unistd.h>
 #include <stdio.h>
+#include <fstream>
 #include <polysat3/proclib.h>
 
 #include "zhelpers.hpp"
@@ -10,6 +12,33 @@ class ZMQEvent;
 
 Process *proc = NULL;
 ZMQEvent *gEvt = NULL;
+
+json event_states = {
+   {"deploy_small_ball_evt", 0},
+   {"deploy_large_ball_evt", 0},
+   {"door_delay_evt", 0},
+   {"cree_blink_evt", 0},
+   {"led_505L_blink_evt", 0},
+   {"led_645L_blink_evt", 0},
+   {"led_851L_blink_evt", 0},
+   {"rebooted", false}
+};
+
+void save_sim_state()
+{
+   std::ofstream out("sim_state.json");
+   out << std::setw(4) << event_states;
+}
+
+void load_sim_state()
+{
+   if(access("event_states.json", F_OK) != -1)
+   {
+      std::ifstream in("event_states.json");
+      in >> event_states;
+      std::cout << event_states << '\n';
+   }
+}
 
 class ZMQEvent {
 public:
@@ -113,11 +142,30 @@ static int zmq_read_cb(ZMQEvent *evt, char type, void *arg)
 
    std::string msg = s_recv (*client);
    json j = json::parse(msg);
+   float current_time = time(NULL);
    std::cout << "Received: " << j << std::endl;
+
+   std::string name;
+   float time_remaining;
+   time_t deploy_time;
+   for(json::iterator it = j["timed_events"].begin(); it != j["timed_events"].end();++it) {
+      if(event_states.contains((*it)["name"])) {
+         time_remaining = (*it)["time_remaining"];
+         name = (*it)["name"];
+         deploy_time = current_time + time_remaining;
+         std::cout << name << ": " << asctime(gmtime(&deploy_time)) << '\n';
+         if(event_states[name] != deploy_time)
+         {
+            std::cout << "deploy time mismatch " << name << " saved: " << event_states[name] << " actual: " << deploy_time << '\n';
+         }
+         event_states[name] = deploy_time;
+      }
+   }
    if (j["dbg_state"] == "stopped") {
       gEvt->AddWriteEvent(&zmq_write_cb, NULL);
    }
-
+   std::cout << event_states << '\n';
+   save_sim_state();
    return EVENT_KEEP;
 }
 static int proc_exit(int sig, void *arg) {
@@ -125,6 +173,18 @@ static int proc_exit(int sig, void *arg) {
    evt->Exit();
 
    return EVENT_KEEP;
+}
+
+void reboot_test()
+{
+   if(event_states["rebooted"] == false)
+   {
+      
+   }
+   else
+   {
+
+   }
 }
 
 int main(int argc, char **argv)
@@ -152,6 +212,8 @@ int main(int argc, char **argv)
    ZMQEvent evt(proc->event_manager(), client);
    gEvt = &evt;
    evt.AddReadEvent(zmq_read_cb, &client);
+
+   load_sim_state();
 
    proc->event_manager()->EventLoop();
 

@@ -1,13 +1,19 @@
-override LDFLAGS+=-rdynamic -lproc3 -lsatpkt -lpolydrivers -lm -lrt -pthread
-override CFLAGS+=-Wall -Werror -pedantic -std=gnu99 -g -DLIBPROC3 -pthread
+override LDFLAGS+=-rdynamic -lproc -lsatpkt -lpolydrivers -lm -lrt -pthread
+override CFLAGS+=-Wall -Werror -pedantic -std=gnu99 -g -pthread
 
-CXXFLAGS += -std=c++11 -g -DLIBPROC3 -ldl -pthread -lproc3 -lz -lrt
+CXXFLAGS += -std=c++11 -g -ldl -pthread -lproc -lz -lrt
+
+SRC=falcon_test.cpp
+OBJS=$(SRC:.c=.o)
+EXECUTABLE=payload-test
+
+all: $(EXECUTABLE) $(CMDS)
+
+payload-test: $(OBJS)
+	$(CXX) $< -o $@ $(CXXFLAGS) -lzmq
 
 dbg-target: dbg_target.c
-	$(CC) $< -rdynamic -g -DLIBPROC3 -lproc3 -lsatpkt -lpolydrivers -ldl -lrt -lz -lm -o $@
-
-payload-test: falcon_test.cpp
-	$(CXX) $< -o payload-test $(CXXFLAGS) -lzmq
+	$(CC) $< -rdynamic -g -lproc -lsatpkt -lpolydrivers -ldl -lrt -lz -lm -o $@
 
 clean:
-	rm -f payload-test dbg_target
+	rm -rf *.o $(EXECUTABLE)

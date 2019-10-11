@@ -3,7 +3,8 @@
  *
  */
 
-#include <polysat3/polysat.h>
+#include <polysat/polysat.h>
+#include <polysat/proclib.h>
 #include <polysat_drivers/drivers/gpio.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,13 +14,15 @@
 #define FEEDBACK_POLL_INTV_MS 1000
 #define DFL_BALL_TIME_MS (5*1000)
 #define DFL_DOOR_TIME_MS (10*1000)
-//#define DFL_SMALL_BALL_TIME (45*60*24*135)
-//#define DFL_LARGE_BALL_TIME (30*60*24*120)
-//#define DFL_DOOR_TIME (25*60*24*60)
 
 #define DFL_SMALL_BALL_TIME (60*60*24*45)
 #define DFL_LARGE_BALL_TIME (60*60*24*30)
 #define DFL_DOOR_TIME (60*60*24*25)
+
+#define BLINK_INTERVAL_CREE 1000 // milliseconds
+#define BLINK_INTERVAL_505L 2000
+#define BLINK_INTERVAL_645L 3000
+#define BLINK_INTERVAL_851L 4000
 
 struct ODECriticalParams {
    uint32_t small_ball_time;
@@ -90,9 +93,9 @@ void payload_status(int socket, unsigned char cmd, void * data, size_t dataLen,
                      struct sockaddr_in * src)
 {
    struct ODEStatus status;
-   time_t now;
+   // time_t now;
 
-   now = time(NULL);
+   // now = time(NULL);
    
    status.small_ball_sw=codes_for_status[0];
    status.large_ball_sw=codes_for_status[1];
@@ -116,11 +119,11 @@ void payload_status(int socket, unsigned char cmd, void * data, size_t dataLen,
    status.time_until_door = 0;
 
    if (state->small_ball_delay_time > 0)
-      status.time_until_small = htonl(state->small_ball_delay_time - now);
+      status.time_until_small = htonl(EVT_sched_remaining(PROC_evt(state->proc), state->small_ball_delay_evt).tv_sec);
    if (state->large_ball_delay_time > 0)
-      status.time_until_large = htonl(state->large_ball_delay_time - now);
+      status.time_until_large = htonl(EVT_sched_remaining(PROC_evt(state->proc), state->large_ball_delay_evt).tv_sec);
    if (state->door_delay_time > 0)
-      status.time_until_door = htonl(state->door_delay_time - now);
+      status.time_until_door = htonl(EVT_sched_remaining(PROC_evt(state->proc), state->door_delay_evt).tv_sec);
 
    // Send the response
    PROC_cmd_sockaddr(state->proc, CMD_STATUS_RESPONSE, &status,
@@ -150,6 +153,8 @@ static void enable_5V(struct ODEPayloadState *state)
 
 static int blink_cree_cb(void *arg)
 {
+
+   DBG_print(DBG_LEVEL_ALL, "Toggling cree LED\n");
    struct ODEPayloadState *state = (struct ODEPayloadState*)arg;
 //   struct ODEStatus *sc_status = (struct ODEStatus*)arg;
 
@@ -166,6 +171,7 @@ static int blink_cree_cb(void *arg)
 
 static int blink_led_505L_cb(void *arg)
 {
+   DBG_print(DBG_LEVEL_ALL, "Toggling 505L LED\n");
    struct ODEPayloadState *state = (struct ODEPayloadState*)arg;
 
    // Invert our LED state
@@ -181,6 +187,8 @@ static int blink_led_505L_cb(void *arg)
 
 static int blink_led_645L_cb(void *arg)
 {
+   DBG_print(DBG_LEVEL_ALL, "Toggling 645L LED\n");
+
    struct ODEPayloadState *state = (struct ODEPayloadState*)arg;
 
    // Invert our LED state
@@ -196,6 +204,8 @@ static int blink_led_645L_cb(void *arg)
 
 static int blink_led_851L_cb(void *arg)
 {
+   DBG_print(DBG_LEVEL_ALL, "Toggling 851L LED\n");
+
    struct ODEPayloadState *state = (struct ODEPayloadState*)arg;
 
    // Invert our LED state
@@ -314,7 +324,7 @@ static int stop_led_851L(void *arg)
       state->led_851L_blink_evt = NULL;
    }
   
-   disable_5V(state);  
+   disable_5V(state);
    codes_for_status[9]=0;
 
    // Do not reschedule this event
@@ -324,6 +334,41 @@ static int stop_led_851L(void *arg)
 
 //__________________________________________________________________
 //Blink LED functions
+
+void blink_cree_forever() {
+   // Clean up from previous events, if any
+   if (state->cree_finish_evt) {
+      EVT_sched_remove(PROC_evt(state->proc), state->cree_finish_evt);
+      state->cree_finish_evt = NULL;
+   }
+   if (state->cree_blink_evt) {
+      EVT_sched_remove(PROC_evt(state->proc), state->cree_blink_evt);
+      state->cree_blink_evt = NULL;
+   }
+   if (state->cree)
+      state->cree->sensor.close((struct Sensor**)&state->cree);
+   codes_for_status[6]=0;
+
+   if (!state->cree)
+      state->cree = create_named_gpio_device("CREE");
+   
+   if (!state->cree)
+      DBG_print(DBG_LEVEL_FATAL, "Could not create cree gpio device");
+      
+   if (state->cree && BLINK_INTERVAL_CREE > 0) {
+
+      codes_for_status[6]=1;
+      state->cree_active = 0;
+
+      if (state->cree && state->cree->set)
+         state->cree->set(state->cree, state->cree_active);
+
+      // Blink the LED now, with timestep period
+      state->cree_blink_evt = EVT_sched_add(PROC_evt(state->proc),
+         EVT_ms2tv(BLINK_INTERVAL_CREE), &blink_cree_cb, state);
+      EVT_sched_set_name(state->cree_blink_evt, "cree_blink_evt");
+   }
+}
 
 void blink_cree(int socket, unsigned char cmd, void * data, size_t dataLen,
                      struct sockaddr_in * src)
@@ -371,6 +416,43 @@ void blink_cree(int socket, unsigned char cmd, void * data, size_t dataLen,
         sizeof(resp), src);
 }
 
+void blink_led_505L_forever() {
+   // Clean up from previous events, if any
+   if (state->led_505L_finish_evt) {
+      EVT_sched_remove(PROC_evt(state->proc), state->led_505L_finish_evt);
+      state->led_505L_finish_evt = NULL;
+   }
+   if (state->led_505L_blink_evt) {
+      EVT_sched_remove(PROC_evt(state->proc), state->led_505L_blink_evt);
+      state->led_505L_blink_evt = NULL;
+   }
+
+   if (state->led_505L)
+      state->led_505L->sensor.close((struct Sensor**)&state->led_505L);
+   codes_for_status[7]=0;
+
+   if (!state->led_505L)
+      state->led_505L = create_named_gpio_device("LED_505L");
+   if (!state->led_505L)
+      DBG_print(DBG_LEVEL_FATAL, "Could not create 505L gpio device");
+
+   if (state->led_505L && BLINK_INTERVAL_505L > 0) {
+	
+      enable_5V(state);
+	   
+      codes_for_status[7]=1;
+
+      state->led_505L_active = 0;
+      if (state->led_505L && state->led_505L->set)
+         state->led_505L->set(state->led_505L, state->led_505L_active);
+
+      // Create the blink event
+      state->led_505L_blink_evt = EVT_sched_add(PROC_evt(state->proc),
+            EVT_ms2tv(BLINK_INTERVAL_505L), &blink_led_505L_cb, state);
+      EVT_sched_set_name(state->led_505L_blink_evt, "led_505L_blink_evt");
+
+   }
+}
 void blink_led_505L(int socket, unsigned char cmd, void * data, size_t dataLen,
                      struct sockaddr_in * src)
 {
@@ -418,6 +500,41 @@ void blink_led_505L(int socket, unsigned char cmd, void * data, size_t dataLen,
 
    PROC_cmd_sockaddr(state->proc, ODE_BLINK_LED_505L_RESP, &resp,
         sizeof(resp), src);
+}
+
+void blink_led_645L_forever() {
+   // Clean up from previous events
+   if (state->led_645L_finish_evt) {
+      EVT_sched_remove(PROC_evt(state->proc), state->led_645L_finish_evt);
+      state->led_645L_finish_evt = NULL;
+   }
+   if (state->led_645L_blink_evt) {
+      EVT_sched_remove(PROC_evt(state->proc), state->led_645L_blink_evt);
+      state->led_645L_blink_evt = NULL;
+   }
+
+   if (state->led_645L)
+      state->led_645L->sensor.close((struct Sensor**)&state->led_645L);
+   codes_for_status[8]=0;
+   if (!state->led_645L)
+      state->led_645L = create_named_gpio_device("LED_645L");
+
+   if (!state->led_645L)
+      DBG_print(DBG_LEVEL_FATAL, "Could not create 645L gpio device");
+
+   if (state->led_645L && BLINK_INTERVAL_645L > 0) {
+	
+      enable_5V(state);
+	   
+      codes_for_status[8]=1;
+      state->led_645L_active = 0;
+      if (state->led_645L && state->led_645L->set)
+         state->led_645L->set(state->led_645L, state->led_645L_active);
+
+      state->led_645L_blink_evt = EVT_sched_add(PROC_evt(state->proc),
+            EVT_ms2tv(BLINK_INTERVAL_645L), &blink_led_645L_cb, state);
+      EVT_sched_set_name(state->led_645L_blink_evt, "led_645L_blink_evt");
+   }
 }
 
 void blink_led_645L(int socket, unsigned char cmd, void * data, size_t dataLen,
@@ -468,6 +585,42 @@ void blink_led_645L(int socket, unsigned char cmd, void * data, size_t dataLen,
         sizeof(resp), src);
 }
 
+void blink_led_851L_forever() {
+   // Clean up from previous events, if any
+   if (state->led_851L_finish_evt) {
+      EVT_sched_remove(PROC_evt(state->proc), state->led_851L_finish_evt);
+      state->led_851L_finish_evt = NULL;
+   }
+   if (state->led_851L_blink_evt) {
+      EVT_sched_remove(PROC_evt(state->proc), state->led_851L_blink_evt);
+      state->led_851L_blink_evt = NULL;
+   }
+
+   if (state->led_851L)
+      state->led_851L->sensor.close((struct Sensor**)&state->led_851L);
+   codes_for_status[9]=0;
+
+   if (!state->led_851L)
+      state->led_851L = create_named_gpio_device("LED_851L");
+   if(!state->led_851L)
+      DBG_print(DBG_LEVEL_FATAL, "Could not create 851L gpio device");
+
+   if (state->led_851L && BLINK_INTERVAL_851L > 0) {
+	
+      enable_5V(state);   
+	   
+      codes_for_status[9]=1;
+      state->led_851L_active = 0;
+      if (state->led_851L && state->led_851L->set)
+         state->led_851L->set(state->led_851L, state->led_851L_active);
+
+      // Create the blink event
+      state->led_851L_blink_evt = EVT_sched_add(PROC_evt(state->proc),
+            EVT_ms2tv(BLINK_INTERVAL_851L), &blink_led_851L_cb, state);
+      EVT_sched_set_name(state->led_851L_blink_evt, "led_851L_blink_evt");
+
+   }
+}
 void blink_led_851L(int socket, unsigned char cmd, void * data, size_t dataLen,
                      struct sockaddr_in * src)
 {
@@ -544,6 +697,8 @@ static int stop_small_ball(void *arg)
    PROC_save_critical_state(state->proc, &cs, sizeof(cs));
    state->small_ball_delay_time = 0;
 
+   DBG_print(DBG_LEVEL_INFO, "Deployed small ball");
+
    // Tell the event system to not reschedule this event
    return EVENT_REMOVE;
 }
@@ -571,6 +726,7 @@ static int stop_large_ball(void *arg)
    PROC_save_critical_state(state->proc, &cs, sizeof(cs));
    state->large_ball_delay_time = 0;
 
+   DBG_print(DBG_LEVEL_INFO, "Deployed large ball");
    // Tell the event system to not reschedule this event
    return EVENT_REMOVE;
 }
@@ -600,6 +756,8 @@ static int stop_door(void *arg)
    PROC_save_critical_state(state->proc, &cs, sizeof(cs));
    state->door_delay_time = 0;
 
+   DBG_print(DBG_LEVEL_INFO, "Door deployed");
+
    return EVENT_REMOVE;
 }
 
@@ -608,6 +766,7 @@ static int stop_door(void *arg)
 
 static void deploy_small_ball_dur(uint32_t duration)
 {
+   DBG_print(DBG_LEVEL_INFO, "Deploying small ball");
    // Remove any preexisting small_ball deployment events
    if (state->small_ball_evt) {
       EVT_sched_remove(PROC_evt(state->proc), state->small_ball_evt);
@@ -648,6 +807,7 @@ void deploy_small_ball(int socket, unsigned char cmd, void * data, size_t dataLe
 
 static void deploy_large_ball_dur(uint32_t duration)
 {
+   DBG_print(DBG_LEVEL_INFO, "Deploying large ball");
    // Remove any preexisting large_ball deployment events
    if (state->large_ball_evt) {
       EVT_sched_remove(PROC_evt(state->proc), state->large_ball_evt);
@@ -687,6 +847,7 @@ void deploy_large_ball(int socket, unsigned char cmd, void * data, size_t dataLe
 
 void deploy_door_dur(uint32_t duration)
 {
+   DBG_print(DBG_LEVEL_INFO, "Deploying door");
    // Remove any preexisting door deployment events
    if (state->door_evt) {
       EVT_sched_remove(PROC_evt(state->proc), state->door_evt);
@@ -801,6 +962,7 @@ static void setup_delayed_events(struct ODEPayloadState *ode)
    now = time(NULL);
 
    if (sizeof(cs) != PROC_read_critical_state(ode->proc, &cs, sizeof(cs))) {
+      DBG_print(DBG_LEVEL_INFO, "No saved critical state found, setting new critical state");
       memset(&cs, 0, sizeof(cs));
       if (DFL_SMALL_BALL_TIME > 0)
          cs.small_ball_time = now + DFL_SMALL_BALL_TIME;
@@ -811,7 +973,7 @@ static void setup_delayed_events(struct ODEPayloadState *ode)
 
       PROC_save_critical_state(ode->proc, &cs, sizeof(cs));
    }
-
+   
    if (cs.small_ball_time > 0) {
       if (cs.small_ball_time < now) {
          if (!cs.small_ball_deployed)
@@ -823,6 +985,7 @@ static void setup_delayed_events(struct ODEPayloadState *ode)
          ode->small_ball_delay_time = cs.small_ball_time;
          ode->small_ball_delay_evt = EVT_sched_add(PROC_evt(ode->proc),
                diff, &deploy_small_ball_evt, ode);
+         EVT_sched_set_name(ode->small_ball_delay_evt, "deploy_small_ball_evt");
       }
    }
 
@@ -837,6 +1000,7 @@ static void setup_delayed_events(struct ODEPayloadState *ode)
          ode->large_ball_delay_time = cs.large_ball_time;
          ode->large_ball_delay_evt = EVT_sched_add(PROC_evt(ode->proc),
                diff, &deploy_large_ball_evt, ode);
+         EVT_sched_set_name(ode->large_ball_delay_evt, "deploy_large_ball_evt");
       }
    }
 
@@ -851,6 +1015,7 @@ static void setup_delayed_events(struct ODEPayloadState *ode)
          diff.tv_sec = ode->door_delay_time - now;
          ode->door_delay_evt = EVT_sched_add(PROC_evt(ode->proc),
                diff, &deploy_door_evt, ode);
+         EVT_sched_set_name(ode->door_delay_evt, "door_delay_evt");
       }
    }
 
@@ -980,8 +1145,6 @@ int main(int argc, char *argv[])
    state->proc = PROC_init("payload", WD_ENABLED);
    DBG_setLevel(DBG_LEVEL_ALL);
 
-   DBG_print(DBG_LEVEL_INFO, "Port: %d", socket_get_addr_by_name("payload"));
-
    // Initialize GPIOs
    state->led_IR = create_named_gpio_device("LED_IR");
    if (state->led_IR && state->led_IR->set)
@@ -992,8 +1155,13 @@ int main(int argc, char *argv[])
 
    state->feedback_evt = EVT_sched_add(PROC_evt(state->proc),
       EVT_ms2tv(FEEDBACK_POLL_INTV_MS), &feedback_cb, state);
-	
+
    setup_delayed_events(state);
+   blink_cree_forever();
+   blink_led_505L_forever();
+   blink_led_645L_forever();
+   blink_led_851L_forever();
+
    // Enter the main event loop
    EVT_start_loop(PROC_evt(state->proc));
 
