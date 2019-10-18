@@ -1,0 +1,148 @@
+{
+    "events_to_monitor": [
+        "deploy_small_ball_evt",
+        "deploy_large_ball_evt",
+        "door_delay_evt"
+    ],
+    "last_status": {
+        "current_time": 93453.095961,
+        "dbg_state": "running",
+        "fd_events": [
+            {
+                "arg_pointer": 94833900552960,
+                "error_breakpoint": false,
+                "error_count": 0,
+                "fd": 4,
+                "filename": "socket:[479473]",
+                "id": 94833900552912,
+                "name": "UDP Command Socket",
+                "pausable": true,
+                "read_breakpoint": false,
+                "read_count": 0,
+                "read_handler": "cmd_handler_cb",
+                "write_breakpoint": false,
+                "write_count": 0
+            },
+            {
+                "arg_pointer": 94833900553200,
+                "error_breakpoint": false,
+                "error_count": 0,
+                "fd": 5,
+                "filename": "socket:[479474]",
+                "id": 94833900553152,
+                "name": "UDP Request Socket",
+                "pausable": true,
+                "read_breakpoint": false,
+                "read_count": 0,
+                "read_handler": "tx_cmd_handler_cb",
+                "write_breakpoint": false,
+                "write_count": 0
+            },
+            {
+                "arg_pointer": 94833900552576,
+                "error_breakpoint": false,
+                "error_count": 0,
+                "fd": 6,
+                "filename": "pipe:[479475]",
+                "id": 94833900552528,
+                "name": "Signal Pipe",
+                "pausable": true,
+                "read_breakpoint": false,
+                "read_count": 0,
+                "read_handler": "signal_fd_cb",
+                "write_breakpoint": false,
+                "write_count": 0
+            },
+            {
+                "arg_pointer": 94833900560160,
+                "error_breakpoint": false,
+                "error_count": 0,
+                "fd": 9,
+                "filename": "socket:[479476]",
+                "id": 94833900560112,
+                "name": "ZMQ Server port 50010",
+                "pausable": false,
+                "read_breakpoint": false,
+                "read_count": 4,
+                "read_handler": "zmql_accept_cb",
+                "write_breakpoint": false,
+                "write_count": 0
+            },
+            {
+                "arg_pointer": 94833900559840,
+                "error_breakpoint": false,
+                "error_count": 0,
+                "fd": 10,
+                "filename": "socket:[480356]",
+                "id": 94833900559792,
+                "name": "ZMQ Client 127.0.0.1:40780",
+                "pausable": true,
+                "read_breakpoint": false,
+                "read_count": 3,
+                "read_handler": "zmql_client_read_cb",
+                "write_breakpoint": false,
+                "write_count": 0
+            }
+        ],
+        "loop_steps": 27,
+        "port": 50010,
+        "process_name": "payload",
+        "timed_events": [
+            {
+                "arg_pointer": 140734816317184,
+                "awake_time": 93453.91112,
+                "event_count": 4,
+                "event_length": 1.0,
+                "function": "",
+                "id": 94833900559488,
+                "name": "",
+                "scheduled_time": 93452.912712,
+                "time_remaining": 0.815159
+            },
+            {
+                "arg_pointer": 94833900542320,
+                "awake_time": 93478.910969,
+                "event_count": 1310728225,
+                "event_length": 30.0,
+                "function": "",
+                "id": 94833900553392,
+                "name": "",
+                "scheduled_time": 93448.911178,
+                "time_remaining": 25.815008
+            },
+            {
+                "arg_pointer": 140734816317184,
+                "awake_time": 3857376.911122,
+                "event_count": 0,
+                "event_length": 3763928.0,
+                "function": "",
+                "id": 94833900559056,
+                "name": "deploy_small_ball_evt",
+                "scheduled_time": 93448.911122,
+                "time_remaining": 3763923.815161
+            },
+            {
+                "arg_pointer": 140734816317184,
+                "awake_time": 2561376.911123,
+                "event_count": 0,
+                "event_length": 2467928.0,
+                "function": "",
+                "id": 94833900576496,
+                "name": "deploy_large_ball_evt",
+                "scheduled_time": 93448.911123,
+                "time_remaining": 2467923.815162
+            },
+            {
+                "arg_pointer": 140734816317184,
+                "awake_time": 2129376.911125,
+                "event_count": 0,
+                "event_length": 2035928.0,
+                "function": "",
+                "id": 94833900576720,
+                "name": "door_delay_evt",
+                "scheduled_time": 93448.911125,
+                "time_remaining": 2035923.815164
+            }
+        ]
+    }
+}
