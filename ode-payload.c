@@ -15,9 +15,16 @@
 #define DFL_BALL_TIME_MS (5*1000)
 #define DFL_DOOR_TIME_MS (10*1000)
 
+/*
 #define DFL_SMALL_BALL_TIME (60*60*24*45)
 #define DFL_LARGE_BALL_TIME (60*60*24*30)
 #define DFL_DOOR_TIME (60*60*24*25)
+*/
+
+#define DFL_SMALL_BALL_TIME 60
+#define DFL_LARGE_BALL_TIME 60*3
+#define DFL_DOOR_TIME 25
+
 
 #define BLINK_INTERVAL_CREE 1000 // milliseconds
 #define BLINK_INTERVAL_505L 2000
@@ -156,7 +163,6 @@ static int blink_cree_cb(void *arg)
 
    DBG_print(DBG_LEVEL_ALL, "Toggling cree LED\n");
    struct ODEPayloadState *state = (struct ODEPayloadState*)arg;
-//   struct ODEStatus *sc_status = (struct ODEStatus*)arg;
 
    // Invert our LED state
    state->cree_active = !state->cree_active;
@@ -239,7 +245,6 @@ static void disable_5V(struct ODEPayloadState *state)
 static int stop_cree(void *arg)
 {
    struct ODEPayloadState *state = (struct ODEPayloadState*)arg;
- //  struct ODEStatus *sc_status = (struct ODEStatus*)arg;
 
    // Turn off the LED
    if (state->cree && state->cree->set)
@@ -748,10 +753,10 @@ static int stop_door(void *arg)
 
    if (state->deploy_door)
       state->deploy_door->sensor.close((struct Sensor**)&state->deploy_door);
-   // Tell the event system to not reschedule this event
 
    if (sizeof(cs) != PROC_read_critical_state(state->proc, &cs, sizeof(cs)))
       return EVENT_REMOVE;
+
    cs.door_deployed = 1;
    PROC_save_critical_state(state->proc, &cs, sizeof(cs));
    state->door_delay_time = 0;
