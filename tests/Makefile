@@ -3,17 +3,15 @@ override CFLAGS+=-Wall -Werror -pedantic -std=gnu99 -g -pthread
 
 CXXFLAGS += -std=c++11 -g -ldl -pthread -lproc -lz -lrt
 
-SRC=falcon_test.cpp
+
+SRC=verify_scheduled_events.cpp
 OBJS=$(SRC:.c=.o)
-EXECUTABLE=payload-test
+EXECUTABLE=verify-scheduled-events
 
 all: $(EXECUTABLE) $(CMDS)
 
-payload-test: $(OBJS)
+verify-scheduled-events: $(OBJS)
 	$(CXX) $< -o $@ $(CXXFLAGS) -lzmq
-
-dbg-target: dbg_target.c
-	$(CC) $< -rdynamic -g -lproc -lsatpkt -lpolydrivers -ldl -lrt -lz -lm -o $@
 
 clean:
 	rm -rf *.o $(EXECUTABLE)
