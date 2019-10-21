@@ -1,7 +1,7 @@
 include Make.rules.arm
 
-override LDFLAGS+=-rdynamic -lproc3 -lsatpkt -lpolydrivers -lm -lrt -pthread
-override CFLAGS+=-Wall -Werror -pedantic -std=gnu99 -g -DLIBPROC3 -pthread
+override LDFLAGS+=-rdynamic -lproc -lsatpkt -lpolydrivers -lm -lrt -pthread
+override CFLAGS+=-Wall -pedantic -std=gnu99 -g -pthread
 
 SRC=ode-payload.c
 OBJS=$(SRC:.c=.o)
@@ -16,7 +16,7 @@ ode-payload: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LDFLAGS) -o $@ -lz
 
 ode-util: ode-util.c
-	$(CC) $< -rdynamic -g -DLIBPROC3 -lproc3 -lsatpkt -lpolydrivers -ldl -lrt -lz -lm -o $@
+	$(CC) $< -rdynamic -g -lproc -lsatpkt -lpolydrivers -ldl -lrt -lz -lm -o $@
 
 install: $(EXECUTABLE) $(CMDS)
 	cp $(EXECUTABLE) $(INSTALL_DEST)
