@@ -1,7 +1,7 @@
-override LDFLAGS+=-rdynamic -lproc -lsatpkt -lpolydrivers -lm -lrt -pthread
-override CFLAGS+=-Wall -Werror -pedantic -std=gnu99 -g -pthread
-
-CXXFLAGS += -std=c++11 -g -ldl -pthread -lproc -lz -lrt
+override LDFLAGS+=-rdynamic -lproc -lsatpkt -lz -pthread
+override CFLAGS+=-Wall -pedantic -std=gnu99 -g
+override CPPFLAGS:=-Wall -std=c++11 -g $(CPPFLAGS)
+MORE_FLAGS=-lzmq -lpolydrivers
 
 
 SRC=verify_scheduled_events.cpp
@@ -11,7 +11,8 @@ EXECUTABLE=verify-scheduled-events
 all: $(EXECUTABLE) $(CMDS)
 
 verify-scheduled-events: $(OBJS)
-	$(CXX) $< -o $@ $(CXXFLAGS) -lzmq
+	$(CXX) -o $@ $(CPPFLAGS) $(OBJS) $(LDFLAGS) $(MORE_FLAGS)
+	#$(CXX) $< -o $@ $(CXXFLAGS) -lzmq
 
 clean:
 	rm -rf *.o $(EXECUTABLE)

@@ -1,8 +1,9 @@
+#include <string>
 #include <iostream>
 #include <unistd.h>
 #include <stdio.h>
 #include <fstream>
-#include <polysat3/proclib.h>
+#include <polysat/proclib.h>
 
 #include "zhelpers.hpp"
 #include "json.hpp"
@@ -280,14 +281,14 @@ int main(int argc, char **argv)
     int i;
     char buff[1024];
 
-    if (argc < 3) {
-        printf("Usage: %s <port number> <[event names...]>\n", argv[0]);
+    if (argc < 4) {
+        printf("Usage: %s <ip> <port number> <[event names...]>\n", argv[0]);
         return 0;
     }
 
     std::string s;
     s += "{\"names\": [";
-    for(i = 2;i < argc;++i) {
+    for(i = 3;i < argc;++i) {
         s += "\"";
         s += argv[i];
         s += "\"";
@@ -314,7 +315,7 @@ int main(int argc, char **argv)
 
    // Create client socket
    zmq::socket_t client (context, ZMQ_PAIR);
-   sprintf(buff, "tcp://localhost:%s", argv[1]);
+   sprintf(buff, "tcp://%s:%s", argv[1], argv[2]);
 
    client.connect(buff);
    ZMQEvent evt(proc->event_manager(), client);
