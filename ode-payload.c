@@ -4,7 +4,6 @@
  */
 
 #include <polysat/polysat.h>
-#include <polysat/proclib.h>
 #include <polysat_drivers/drivers/gpio.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,14 +14,23 @@
 #define DFL_BALL_TIME_MS (5*1000)
 #define DFL_DOOR_TIME_MS (10*1000)
 
+/*
 #define DFL_SMALL_BALL_TIME (60*60*24*45)
 #define DFL_LARGE_BALL_TIME (60*60*24*30)
 #define DFL_DOOR_TIME (60*60*24*25)
+*/
+
+#define DFL_SMALL_BALL_TIME 60
+#define DFL_LARGE_BALL_TIME 60*3
+#define DFL_DOOR_TIME 25
+
 
 #define BLINK_INTERVAL_CREE 1000 // milliseconds
 #define BLINK_INTERVAL_505L 2000
 #define BLINK_INTERVAL_645L 3000
 #define BLINK_INTERVAL_851L 4000
+
+
 
 struct ODECriticalParams {
    uint32_t small_ball_time;
@@ -82,9 +90,41 @@ struct ODEPayloadState {
 	void *feedback_evt;
 };
 
+struct PayloadConfig {
+    uint32_t feedback_poll_intv_ms;
+
+    uint32_t deploy_dur_ms_door;
+    uint32_t deploy_dur_ms_ball;
+
+    uint32_t deploy_delay_sec_door;
+    uint32_t deploy_delay_sec_large_ball;
+    uint32_t deploy_delay_sec_small_ball;
+
+    uint32_t blink_interval_ms_cree;
+    uint32_t blink_interval_ms_505L;
+    uint32_t blink_interval_ms_645L;
+    uint32_t blink_interval_ms_851L;
+};
+
+CFG_NEWOBJ(payload,
+    CFG_MALLOC(struct PayloadConfig),
+    CFG_NULL,
+    CFG_UINT32("FEEDBACK_POLL_INTV_MS", struct PayloadConfig, feedback_poll_intv_ms),
+    CFG_UINT32("DEPLOY_DUR_MS_DOOR", struct PayloadConfig, deploy_dur_ms_door),
+    CFG_UINT32("DEPLOY_DUR_MS_BALL", struct PayloadConfig, deploy_dur_ms_ball),
+    CFG_UINT32("DEPLOY_DELAY_SEC_DOOR", struct PayloadConfig, deploy_delay_sec_door),
+    CFG_UINT32("DEPLOY_DELAY_SEC_LARGE_BALL", struct PayloadConfig, deploy_delay_sec_large_ball),
+    CFG_UINT32("DEPLOY_DELAY_SEC_SMALL_BALL", struct PayloadConfig, deploy_delay_sec_small_ball),
+    CFG_UINT32("BLINK_INTERVAL_MS_CREE", struct PayloadConfig, blink_interval_ms_cree),
+    CFG_UINT32("BLINK_INTERVAL_MS_505L", STRUCT PAYLOADCONFIG, BLINK_INTERVAL_MS_505L),
+    CFG_UINT32("BLINK_INTERVAL_MS_645L", STRUCT PAYLOADCONFIG, BLINK_INTERVAL_MS_645L),
+    CFG_UINT32("BLINK_INTERVAL_MS_851L", struct PayloadConfig, blink_interval_ms_851L)
+)
+
 static void setup_delayed_events(struct ODEPayloadState *ode);
 
 static struct ODEPayloadState *state = NULL;
+static struct PayloadConfig *cfg = NULL;
 static char codes_for_status[12]={0};
 static time_t times_for_status[3] = { 0, 0, 0 };
 
@@ -156,7 +196,6 @@ static int blink_cree_cb(void *arg)
 
    DBG_print(DBG_LEVEL_ALL, "Toggling cree LED\n");
    struct ODEPayloadState *state = (struct ODEPayloadState*)arg;
-//   struct ODEStatus *sc_status = (struct ODEStatus*)arg;
 
    // Invert our LED state
    state->cree_active = !state->cree_active;
@@ -239,7 +278,6 @@ static void disable_5V(struct ODEPayloadState *state)
 static int stop_cree(void *arg)
 {
    struct ODEPayloadState *state = (struct ODEPayloadState*)arg;
- //  struct ODEStatus *sc_status = (struct ODEStatus*)arg;
 
    // Turn off the LED
    if (state->cree && state->cree->set)
@@ -356,12 +394,13 @@ void blink_cree_forever() {
       DBG_print(DBG_LEVEL_FATAL, "Could not create cree gpio device");
       
    if (state->cree && BLINK_INTERVAL_CREE > 0) {
+      
+      enable_5V(state);
 
       codes_for_status[6]=1;
-      state->cree_active = 0;
 
-      if (state->cree && state->cree->set)
-         state->cree->set(state->cree, state->cree_active);
+      state->cree_active = 0;
+      if (state->cree && state->cree->set) state->cree->set(state->cree, state->cree_active);
 
       // Blink the LED now, with timestep period
       state->cree_blink_evt = EVT_sched_add(PROC_evt(state->proc),
@@ -748,10 +787,10 @@ static int stop_door(void *arg)
 
    if (state->deploy_door)
       state->deploy_door->sensor.close((struct Sensor**)&state->deploy_door);
-   // Tell the event system to not reschedule this event
 
    if (sizeof(cs) != PROC_read_critical_state(state->proc, &cs, sizeof(cs)))
       return EVENT_REMOVE;
+
    cs.door_deployed = 1;
    PROC_save_critical_state(state->proc, &cs, sizeof(cs));
    state->door_delay_time = 0;

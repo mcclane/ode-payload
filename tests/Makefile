@@ -1,19 +1,18 @@
-override LDFLAGS+=-rdynamic -lproc -lsatpkt -lpolydrivers -lm -lrt -pthread
-override CFLAGS+=-Wall -Werror -pedantic -std=gnu99 -g -pthread
+override LDFLAGS+=-rdynamic -lproc -lsatpkt -lz -pthread
+override CFLAGS+=-Wall -pedantic -std=gnu99 -g
+override CPPFLAGS:=-Wall -std=c++11 -g $(CPPFLAGS)
+MORE_FLAGS=-lzmq -lpolydrivers
 
-CXXFLAGS += -std=c++11 -g -ldl -pthread -lproc -lz -lrt
 
-SRC=falcon_test.cpp
+SRC=verify_scheduled_events.cpp
 OBJS=$(SRC:.c=.o)
-EXECUTABLE=payload-test
+EXECUTABLE=verify-scheduled-events
 
 all: $(EXECUTABLE) $(CMDS)
 
-payload-test: $(OBJS)
-	$(CXX) $< -o $@ $(CXXFLAGS) -lzmq
-
-dbg-target: dbg_target.c
-	$(CC) $< -rdynamic -g -lproc -lsatpkt -lpolydrivers -ldl -lrt -lz -lm -o $@
+verify-scheduled-events: $(OBJS)
+	$(CXX) -o $@ $(CPPFLAGS) $(OBJS) $(LDFLAGS) $(MORE_FLAGS)
+	#$(CXX) $< -o $@ $(CXXFLAGS) -lzmq
 
 clean:
 	rm -rf *.o $(EXECUTABLE)
