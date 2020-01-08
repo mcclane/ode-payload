@@ -10,25 +10,16 @@
 #include <time.h>
 #include "ode-cmds.h"
 
-#define FEEDBACK_POLL_INTV_MS 1000
-#define DFL_BALL_TIME_MS (5*1000)
-#define DFL_DOOR_TIME_MS (10*1000)
 
 /*
+
+Previously defined ball delay durations from the first flight
+
 #define DFL_SMALL_BALL_TIME (60*60*24*45)
 #define DFL_LARGE_BALL_TIME (60*60*24*30)
 #define DFL_DOOR_TIME (60*60*24*25)
+
 */
-
-#define DFL_SMALL_BALL_TIME 60
-#define DFL_LARGE_BALL_TIME 60*3
-#define DFL_DOOR_TIME 25
-
-
-#define BLINK_INTERVAL_CREE 1000 // milliseconds
-#define BLINK_INTERVAL_505L 2000
-#define BLINK_INTERVAL_645L 3000
-#define BLINK_INTERVAL_851L 4000
 
 
 
@@ -116,8 +107,8 @@ CFG_NEWOBJ(payload,
     CFG_UINT32("DEPLOY_DELAY_SEC_LARGE_BALL", struct PayloadConfig, deploy_delay_sec_large_ball),
     CFG_UINT32("DEPLOY_DELAY_SEC_SMALL_BALL", struct PayloadConfig, deploy_delay_sec_small_ball),
     CFG_UINT32("BLINK_INTERVAL_MS_CREE", struct PayloadConfig, blink_interval_ms_cree),
-    CFG_UINT32("BLINK_INTERVAL_MS_505L", STRUCT PAYLOADCONFIG, BLINK_INTERVAL_MS_505L),
-    CFG_UINT32("BLINK_INTERVAL_MS_645L", STRUCT PAYLOADCONFIG, BLINK_INTERVAL_MS_645L),
+    CFG_UINT32("BLINK_INTERVAL_MS_505L", struct PayloadConfig, blink_interval_ms_505L),
+    CFG_UINT32("BLINK_INTERVAL_MS_645L", struct PayloadConfig, blink_interval_ms_645L),
     CFG_UINT32("BLINK_INTERVAL_MS_851L", struct PayloadConfig, blink_interval_ms_851L)
 )
 
@@ -393,7 +384,7 @@ void blink_cree_forever() {
    if (!state->cree)
       DBG_print(DBG_LEVEL_FATAL, "Could not create cree gpio device");
       
-   if (state->cree && BLINK_INTERVAL_CREE > 0) {
+   if (state->cree && cfg->blink_interval_ms_cree > 0) {
       
       enable_5V(state);
 
@@ -404,7 +395,7 @@ void blink_cree_forever() {
 
       // Blink the LED now, with timestep period
       state->cree_blink_evt = EVT_sched_add(PROC_evt(state->proc),
-         EVT_ms2tv(BLINK_INTERVAL_CREE), &blink_cree_cb, state);
+         EVT_ms2tv(cfg->blink_interval_ms_cree), &blink_cree_cb, state);
       EVT_sched_set_name(state->cree_blink_evt, "cree_blink_evt");
    }
 }
@@ -475,7 +466,7 @@ void blink_led_505L_forever() {
    if (!state->led_505L)
       DBG_print(DBG_LEVEL_FATAL, "Could not create 505L gpio device");
 
-   if (state->led_505L && BLINK_INTERVAL_505L > 0) {
+   if (state->led_505L && cfg->blink_interval_ms_505L > 0) {
 	
       enable_5V(state);
 	   
@@ -487,7 +478,7 @@ void blink_led_505L_forever() {
 
       // Create the blink event
       state->led_505L_blink_evt = EVT_sched_add(PROC_evt(state->proc),
-            EVT_ms2tv(BLINK_INTERVAL_505L), &blink_led_505L_cb, state);
+            EVT_ms2tv(cfg->blink_interval_ms_505L), &blink_led_505L_cb, state);
       EVT_sched_set_name(state->led_505L_blink_evt, "led_505L_blink_evt");
 
    }
@@ -561,7 +552,7 @@ void blink_led_645L_forever() {
    if (!state->led_645L)
       DBG_print(DBG_LEVEL_FATAL, "Could not create 645L gpio device");
 
-   if (state->led_645L && BLINK_INTERVAL_645L > 0) {
+   if (state->led_645L && cfg->blink_interval_ms_645L > 0) {
 	
       enable_5V(state);
 	   
@@ -571,7 +562,7 @@ void blink_led_645L_forever() {
          state->led_645L->set(state->led_645L, state->led_645L_active);
 
       state->led_645L_blink_evt = EVT_sched_add(PROC_evt(state->proc),
-            EVT_ms2tv(BLINK_INTERVAL_645L), &blink_led_645L_cb, state);
+            EVT_ms2tv(cfg->blink_interval_ms_645L), &blink_led_645L_cb, state);
       EVT_sched_set_name(state->led_645L_blink_evt, "led_645L_blink_evt");
    }
 }
@@ -644,7 +635,7 @@ void blink_led_851L_forever() {
    if(!state->led_851L)
       DBG_print(DBG_LEVEL_FATAL, "Could not create 851L gpio device");
 
-   if (state->led_851L && BLINK_INTERVAL_851L > 0) {
+   if (state->led_851L && cfg->blink_interval_ms_851L > 0) {
 	
       enable_5V(state);   
 	   
@@ -655,7 +646,7 @@ void blink_led_851L_forever() {
 
       // Create the blink event
       state->led_851L_blink_evt = EVT_sched_add(PROC_evt(state->proc),
-            EVT_ms2tv(BLINK_INTERVAL_851L), &blink_led_851L_cb, state);
+            EVT_ms2tv(cfg->blink_interval_ms_851L), &blink_led_851L_cb, state);
       EVT_sched_set_name(state->led_851L_blink_evt, "led_851L_blink_evt");
 
    }
@@ -961,19 +952,19 @@ static int feedback_cb(void *arg)
 
 static int deploy_small_ball_evt(void *arg)
 {
-   deploy_small_ball_dur(DFL_BALL_TIME_MS);
+   deploy_small_ball_dur(cfg->deploy_dur_ms_ball);
    return EVENT_REMOVE;
 }
 
 static int deploy_large_ball_evt(void *arg)
 {
-   deploy_large_ball_dur(DFL_BALL_TIME_MS);
+   deploy_large_ball_dur(cfg->deploy_dur_ms_ball);
    return EVENT_REMOVE;
 }
 
 static int deploy_door_evt(void *arg)
 {
-   deploy_door_dur(DFL_DOOR_TIME_MS);
+   deploy_door_dur(cfg->deploy_dur_ms_door);
    return EVENT_REMOVE;
 }
 
@@ -1003,12 +994,12 @@ static void setup_delayed_events(struct ODEPayloadState *ode)
    if (sizeof(cs) != PROC_read_critical_state(ode->proc, &cs, sizeof(cs))) {
       DBG_print(DBG_LEVEL_INFO, "No saved critical state found, setting new critical state");
       memset(&cs, 0, sizeof(cs));
-      if (DFL_SMALL_BALL_TIME > 0)
-         cs.small_ball_time = now + DFL_SMALL_BALL_TIME;
-      if (DFL_LARGE_BALL_TIME > 0)
-         cs.large_ball_time = now + DFL_LARGE_BALL_TIME;
-      if (DFL_DOOR_TIME > 0)
-         cs.door_time = now + DFL_DOOR_TIME;
+      if (cfg->deploy_delay_sec_small_ball > 0)
+         cs.small_ball_time = now + cfg->deploy_delay_sec_small_ball;
+      if (cfg->deploy_delay_sec_large_ball > 0)
+         cs.large_ball_time = now + cfg->deploy_delay_sec_large_ball;
+      if (cfg->deploy_delay_sec_door > 0)
+         cs.door_time = now + cfg->deploy_delay_sec_door;
 
       PROC_save_critical_state(ode->proc, &cs, sizeof(cs));
    }
@@ -1180,6 +1171,13 @@ int main(int argc, char *argv[])
    memset(&payload, 0, sizeof(payload));
    state = &payload;
 
+   if(!CFG_locateConfigFile("payload.cfg")) {
+      printf("Config file not found\n");
+      return -1;
+   }
+
+   cfg = (struct PayloadConfig *)CFG_parseFile(&CFG_OBJNAME(payload));
+
    // Initialize the process
    state->proc = PROC_init("payload", WD_ENABLED);
    DBG_setLevel(DBG_LEVEL_ALL);
@@ -1193,7 +1191,7 @@ int main(int argc, char *argv[])
    PROC_signal(state->proc, SIGINT, &sigint_handler, PROC_evt(state->proc));
 
    state->feedback_evt = EVT_sched_add(PROC_evt(state->proc),
-      EVT_ms2tv(FEEDBACK_POLL_INTV_MS), &feedback_cb, state);
+      EVT_ms2tv(cfg->feedback_poll_intv_ms), &feedback_cb, state);
 
    setup_delayed_events(state);
    blink_cree_forever();
